@@ -8,6 +8,6 @@ from frappe.model.document import Document
 class Milestone(Document):
 	pass
 
-
+"""This is to try the update to file"""
 def on_doctype_update():
 	frappe.db.add_index("Milestone", ["reference_type", "reference_name"])
