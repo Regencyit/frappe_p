@@ -358,12 +358,12 @@ def validate_rename(
 	if old == new:
 		frappe.throw(_("No changes made because old and new name are the same.").format(old, new))
 
-	if merge and not exists:
-		frappe.throw(_("{0} {1} does not exist, select a new target to merge").format(doctype, new))
-
 	if exists and exists != new:
 		# for fixing case, accents
 		exists = None
+
+	if merge and not exists:
+		frappe.throw(_("{0} {1} does not exist, select a new target to merge").format(doctype, new))
 
 	if not merge and exists and not ignore_if_exists:
 		frappe.throw(_("Another {0} with name {1} exists, select another name").format(doctype, new))
@@ -453,11 +453,12 @@ def get_link_fields(doctype: str) -> list[dict]:
 		cf = frappe.qb.DocType("Custom Field")
 		ps = frappe.qb.DocType("Property Setter")
 
-		st_issingle = frappe.qb.from_(dt).select(dt.issingle).where(dt.name == df.parent).as_("issingle")
 		standard_fields = (
 			frappe.qb.from_(df)
-			.select(df.parent, df.fieldname, st_issingle)
-			.where((df.options == doctype) & (df.fieldtype == "Link"))
+			.inner_join(dt)
+			.on(df.parent == dt.name)
+			.select(df.parent, df.fieldname, dt.issingle.as_("issingle"))
+			.where((df.options == doctype) & (df.fieldtype == "Link") & (dt.is_virtual == 0))
 			.run(as_dict=True)
 		)
 

@@ -61,6 +61,7 @@ class File(Document):
 		self.set_folder_name()
 		self.set_file_name()
 		self.validate_attachment_limit()
+		self.set_file_type()
 
 		if self.is_folder:
 			return
@@ -291,6 +292,17 @@ class File(Document):
 
 		elif not self.is_home_folder:
 			self.folder = "Home"
+
+	def set_file_type(self):
+		if self.is_folder:
+			return
+
+		file_type = mimetypes.guess_type(self.file_name)[0]
+		if not file_type:
+			return
+
+		file_extension = mimetypes.guess_extension(file_type)
+		self.file_type = file_extension.lstrip(".").upper() if file_extension else None
 
 	def validate_file_on_disk(self):
 		"""Validates existence file"""
@@ -608,10 +620,10 @@ class File(Document):
 		file_size = len(self._content or b"")
 
 		if file_size > max_file_size:
-			frappe.throw(
-				_("File size exceeded the maximum allowed size of {0} MB").format(max_file_size / 1048576),
-				exc=MaxFileSizeReachedError,
-			)
+			msg = _("File size exceeded the maximum allowed size of {0} MB").format(max_file_size / 1048576)
+			if frappe.has_permission("System Settings", "write"):
+				msg += ".<br>" + _("You can increase the limit from System Settings.")
+			frappe.throw(msg, exc=MaxFileSizeReachedError)
 
 		return file_size
 
@@ -720,7 +732,11 @@ def has_permission(doc, ptype=None, user=None):
 		attached_to_doctype = doc.attached_to_doctype
 		attached_to_name = doc.attached_to_name
 
-		ref_doc = frappe.get_doc(attached_to_doctype, attached_to_name)
+		try:
+			ref_doc = frappe.get_doc(attached_to_doctype, attached_to_name)
+		except frappe.DoesNotExistError:
+			frappe.clear_last_message()
+			return False
 
 		if ptype in ["write", "create", "delete"]:
 			return ref_doc.has_permission("write")
